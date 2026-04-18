@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
   { href: "/time", label: "Time", icon: Clock },
   { href: "/habits", label: "Habits", icon: Repeat },
@@ -33,14 +33,13 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-border bg-card">
       <div className="flex h-14 items-center border-b border-border px-4">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
+        <Link href="/dashboard" className="text-lg font-semibold tracking-tight">
           LifeOS
         </Link>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}

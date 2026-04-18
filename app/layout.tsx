@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,10 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-x-hidden">{children}</main>
-        </div>
+        <ClerkProvider>{children}</ClerkProvider>
       </body>
     </html>
   );
