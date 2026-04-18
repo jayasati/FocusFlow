@@ -3,6 +3,292 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+}
+
+// --- Enums ---
+
+enum TaskStatus {
+  TODO
+  DOING
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MED
+  HIGH
+  URGENT
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+enum JournalType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum DeadlineType {
+  ASSIGNMENT
+  EXAM
+  PROJECT
+}
+
+enum DeadlineStatus {
+  PENDING
+  DONE
+}
+
+enum GoalTimeframe {
+  YEAR
+  QUARTER
+  MONTH
+  WEEK
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum SubscriptionCycle {
+  MONTHLY
+  YEARLY
+}
+
+// --- Models ---
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks          Task[]
+  projects       Project[]
+  timeEntries    TimeEntry[]
+  categories     Category[]
+  habits         Habit[]
+  moodLogs       MoodLog[]
+  journalEntries JournalEntry[]
+  subjects       Subject[]
+  deadlines      Deadline[]
+  goals          Goal[]
+  expenses       Expense[]
+  subscriptions  Subscription[]
+}
+
+model Task {
+  id               String       @id @default(cuid())
+  userId           String
+  title            String
+  description      String?
+  status           TaskStatus   @default(TODO)
+  priority         TaskPriority @default(MED)
+  quadrant         Int?
+  dueDate          DateTime?
+  estimatedMinutes Int?
+  actualMinutes    Int?
+  parentTaskId     String?
+  projectId        String?
+  createdAt        DateTime     @default(now())
+  completedAt      DateTime?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parentTask  Task?       @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks    Task[]      @relation("TaskSubtasks")
+  timeEntries TimeEntry[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([userId, dueDate])
+  @@index([projectId])
+  @@index([parentTaskId])
+}
+
+model Project {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  color      String?
+  archivedAt DateTime?
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([userId])
+}
+
+model TimeEntry {
+  id              String    @id @default(cuid())
+  userId          String
+  taskId          String?
+  categoryId      String?
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationSeconds Int?
+  note            String?
+  energyLevel     Int?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task     Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startedAt])
+  @@index([taskId])
+  @@index([categoryId])
+}
+
+model Category {
+  id     String  @id @default(cuid())
+  userId String
+  name   String
+  color  String?
+  icon   String?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timeEntries TimeEntry[]
+
+  @@index([userId])
+}
+
+model Habit {
+  id            String         @id @default(cuid())
+  userId        String
+  name          String
+  frequency     HabitFrequency @default(DAILY)
+  targetPerWeek Int?
+  color         String?
+  archivedAt    DateTime?
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  @@index([userId])
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      DateTime
+  completed Boolean  @default(false)
+  note      String?
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([date])
+}
+
+model MoodLog {
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime
+  score  Int
+  note   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model JournalEntry {
+  id      String      @id @default(cuid())
+  userId  String
+  date    DateTime
+  content String
+  type    JournalType @default(DAILY)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, type])
+}
+
+model Subject {
+  id                 String  @id @default(cuid())
+  userId             String
+  name               String
+  color              String?
+  targetHoursPerWeek Float?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deadlines Deadline[]
+
+  @@index([userId])
+}
+
+model Deadline {
+  id        String         @id @default(cuid())
+  userId    String
+  title     String
+  subjectId String?
+  dueAt     DateTime
+  type      DeadlineType
+  status    DeadlineStatus @default(PENDING)
+  notes     String?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
+  @@index([userId, dueAt])
+  @@index([subjectId])
+}
+
+model Goal {
+  id           String        @id @default(cuid())
+  userId       String
+  title        String
+  description  String?
+  timeframe    GoalTimeframe
+  parentGoalId String?
+  startDate    DateTime?
+  endDate      DateTime?
+  status       GoalStatus    @default(ACTIVE)
+  progress     Int           @default(0)
+
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentGoal Goal?  @relation("SubGoals", fields: [parentGoalId], references: [id], onDelete: Cascade)
+  subGoals   Goal[] @relation("SubGoals")
+
+  @@index([userId, status])
+  @@index([userId, endDate])
+  @@index([parentGoalId])
+}
+
+model Expense {
+  id       String   @id @default(cuid())
+  userId   String
+  amount   Decimal  @db.Decimal(10, 2)
+  category String
+  note     String?
+  date     DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, category])
+}
+
+model Subscription {
+  id          String            @id @default(cuid())
+  userId      String
+  name        String
+  amount      Decimal           @db.Decimal(10, 2)
+  cycle       SubscriptionCycle
+  nextRenewal DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, nextRenewal])
 }
