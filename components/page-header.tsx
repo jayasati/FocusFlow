@@ -20,19 +20,22 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex flex-wrap items-center justify-between gap-4 px-8 py-6",
+        "flex flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-6 md:px-8 md:py-6",
         className,
       )}
     >
-      <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-xl font-bold tracking-tight text-foreground md:text-2xl">
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            {subtitle}
+          </p>
         ) : null}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 md:pr-[110px]">
+        {/* md+ trailing pad reserves space for the persistent bell + UserButton */}
         {actions}
         <TopBar searchPlaceholder={searchPlaceholder} />
       </div>

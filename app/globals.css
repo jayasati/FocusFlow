@@ -116,6 +116,10 @@
   .bg-keep-going {
     background-image: linear-gradient(135deg, #1c1f40, #221e45);
   }
+  /* Dark gradient used by the "Daily Progress" card in idea/focusflow-tasks.html */
+  .bg-daily-progress {
+    background-image: linear-gradient(145deg, #1a1c38, #201e44);
+  }
   /* Hide native scrollbar on horizontal scroll containers (still scrollable) */
   .hide-scrollbar {
     scrollbar-width: none;
@@ -124,4 +128,9 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+}
+
+@keyframes loadbar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
 }

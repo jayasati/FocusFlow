@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSidebarBottomSlot } from "@/lib/sidebar-slot";
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
 
@@ -40,6 +41,8 @@ const bottomItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const slot = useSidebarBottomSlot();
+  const bottom = slot?.bottom ?? <KeepGoingCard />;
 
   return (
     <aside className="sticky top-0 flex h-screen w-[210px] flex-col border-r border-border bg-sidebar">
@@ -69,9 +72,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto px-[14px] pb-[14px] pt-2">
-        <KeepGoingCard />
-      </div>
+      <div className="mt-auto px-[14px] pb-[14px] pt-2">{bottom}</div>
     </aside>
   );
 }
@@ -82,6 +83,7 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <Link
       href={href}
+      prefetch
       className={cn(
         "flex items-center gap-2.5 px-[18px] py-[9px] text-[13.5px] font-medium transition-colors",
         isActive
@@ -91,7 +93,19 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
     >
       <Icon className="h-4 w-4 shrink-0" />
       <span className="truncate">{label}</span>
+      <NavPending />
     </Link>
+  );
+}
+
+function NavPending() {
+  const { pending } = useLinkStatus();
+  if (!pending) return null;
+  return (
+    <span
+      aria-hidden
+      className="ml-auto inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary-soft"
+    />
   );
 }
 
