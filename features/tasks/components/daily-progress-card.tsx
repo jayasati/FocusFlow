@@ -16,8 +16,7 @@ export function DailyProgressCard({
   return (
     <div
       className={cn(
-        "rounded-[14px] border border-border p-[14px]",
-        "bg-daily-progress",
+        "rounded-[14px] border border-border bg-card p-[14px]",
       )}
     >
       <div className="text-[13px] font-bold">Daily Progress</div>

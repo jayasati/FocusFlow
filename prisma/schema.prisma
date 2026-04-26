@@ -78,13 +78,14 @@ enum IntegrationProvider {
 // --- Models ---
 
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
-  name      String?
-  imageUrl  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  clerkId             String   @unique
+  email               String   @unique
+  name                String?
+  imageUrl            String?
+  dailyFocusGoalMin   Int      @default(240)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   tasks            Task[]
   projects         Project[]

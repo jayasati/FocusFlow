@@ -21,9 +21,8 @@ export default async function HeroPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
-      {/* radial purple glow — top right + center-left */}
-      <div className="pointer-events-none absolute -right-40 -top-40 h-[640px] w-[640px] rounded-full bg-primary/20 blur-[140px]" />
-      <div className="pointer-events-none absolute -left-40 top-[40%] h-[480px] w-[480px] rounded-full bg-primary-soft/10 blur-[140px]" />
+      {/* subtle ambient glow — kept light to avoid AI-template look */}
+      <div className="pointer-events-none absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full bg-primary/10 blur-[120px]" />
 
       {/* TOP NAV */}
       <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
@@ -119,8 +118,8 @@ export default async function HeroPage() {
 
         {/* Dashboard preview */}
         <div className="relative">
-          <div className="absolute -inset-10 rounded-[28px] bg-primary/25 blur-[90px]" />
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-primary/30">
+          <div className="absolute -inset-6 rounded-[24px] bg-primary/10 blur-[60px]" />
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
             <Image
               src="/mockups/dashboard.png"
               alt="FocusFlow dashboard preview"
@@ -345,8 +344,7 @@ function MockupSlide({
 }) {
   return (
     <div className="relative w-[min(820px,72vw)] flex-shrink-0 snap-center">
-      <div className="absolute -inset-4 rounded-[28px] bg-primary/12 blur-[80px]" />
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-primary/15">
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
         <Image
           src={src}
           alt={name}

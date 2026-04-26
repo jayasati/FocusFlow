@@ -4,7 +4,7 @@ export function ConsistencyCard({ percent }: { percent: number }) {
   const dash = (Math.min(100, percent) / 100) * circ;
 
   return (
-    <div className="rounded-[14px] border border-border bg-daily-progress p-[14px] text-center">
+    <div className="rounded-[14px] border border-border bg-card p-[14px] text-center">
       <div className="text-[13px] font-bold leading-tight">Consistency is</div>
       <div className="text-[13px] font-bold leading-tight">the key! 🗝️</div>
 
