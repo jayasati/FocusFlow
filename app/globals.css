@@ -116,4 +116,12 @@
   .bg-keep-going {
     background-image: linear-gradient(135deg, #1c1f40, #221e45);
   }
+  /* Hide native scrollbar on horizontal scroll containers (still scrollable) */
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
