@@ -4,71 +4,94 @@
 
 @layer base {
   :root {
-    /* FocusFlow dark theme is the DEFAULT */
-    --background: 225 39% 7%;
-    --foreground: 220 20% 96%;
+    /* FocusFlow dark theme — values mirror idea/focusflow-analytics.html */
+    /* #0b0c1a */
+    --background: 234 43% 7%;
+    --foreground: 225 19% 93%;
 
-    --card: 229 42% 12%;
-    --card-foreground: 220 20% 96%;
+    /* #111226 — sidebar rail */
+    --sidebar: 235 39% 11%;
+    --sidebar-foreground: 225 19% 93%;
 
-    --popover: 229 42% 12%;
-    --popover-foreground: 220 20% 96%;
+    /* #13152a — cards */
+    --card: 233 39% 12%;
+    --card-foreground: 225 19% 93%;
 
-    --primary: 262 83% 58%;
+    /* #161830 — inputs, dropdowns, sub-surfaces */
+    --surface-2: 233 38% 14%;
+
+    --popover: 233 39% 12%;
+    --popover-foreground: 225 19% 93%;
+
+    /* #7c5cf6 */
+    --primary: 250 89% 66%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 36% 19%;
-    --secondary-foreground: 220 20% 96%;
+    /* #9b7ff8 — active text / accent text */
+    --primary-soft: 250 89% 73%;
 
-    --muted: 228 32% 17%;
-    --muted-foreground: 220 14% 65%;
+    --secondary: 233 28% 18%;
+    --secondary-foreground: 225 19% 93%;
 
-    --accent: 271 91% 65%;
+    /* #9da3b8 */
+    --muted: 233 22% 18%;
+    --muted-foreground: 225 14% 67%;
+
+    /* #5f6580 — extra muted / placeholder */
+    --muted-foreground-strong: 228 14% 44%;
+
+    --accent: 250 89% 73%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 228 36% 19%;
-    --input: 228 36% 19%;
-    --ring: 262 83% 58%;
+    /* rgba(255,255,255,0.06) — represented as a faint white border via hsl is hard, so we use the same near-white tone */
+    --border: 234 22% 18%;
+    --input: 234 22% 18%;
+    --ring: 250 89% 66%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     /* KPI accent palette */
     --kpi-green: 142 71% 45%;
     --kpi-orange: 38 92% 50%;
     --kpi-red: 0 84% 60%;
-    --kpi-purple: 262 83% 58%;
-    --kpi-violet: 271 91% 65%;
+    --kpi-blue: 217 91% 60%;
+    --kpi-purple: 250 89% 66%;
+    --kpi-violet: 250 89% 73%;
 
-    /* Brand violet ramp (#7C3AED → #A855F7 gradient) */
-    --violet-500: 262 83% 58%;
-    --violet-400: 271 91% 65%;
-    --violet-600: 263 70% 50%;
+    /* Brand violet ramp */
+    --violet-400: 250 89% 73%;
+    --violet-500: 250 89% 66%;
+    --violet-600: 250 76% 58%;
   }
 
-  /* Optional light theme — UI is dark-first per spec but we keep this for future */
   .light {
     --background: 0 0% 100%;
     --foreground: 222 84% 5%;
+    --sidebar: 0 0% 98%;
+    --sidebar-foreground: 222 84% 5%;
     --card: 0 0% 100%;
     --card-foreground: 222 84% 5%;
+    --surface-2: 210 40% 96%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 84% 5%;
-    --primary: 262 83% 58%;
+    --primary: 250 89% 66%;
     --primary-foreground: 0 0% 100%;
+    --primary-soft: 250 89% 73%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 271 91% 65%;
+    --muted-foreground-strong: 220 14% 38%;
+    --accent: 250 89% 73%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 262 83% 58%;
+    --ring: 250 89% 66%;
   }
 }
 
@@ -78,10 +101,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(800px circle at 90% -10%, hsl(262 83% 58% / 0.12), transparent 50%),
-      radial-gradient(600px circle at -10% 110%, hsl(271 91% 65% / 0.08), transparent 50%);
-    background-attachment: fixed;
   }
 }
 
@@ -92,5 +111,9 @@
   }
   .bg-gradient-violet {
     background-image: linear-gradient(135deg, hsl(var(--violet-600)), hsl(var(--violet-400)));
+  }
+  /* Dark gradient used by the "Keep going!" card in idea/focusflow-analytics.html */
+  .bg-keep-going {
+    background-image: linear-gradient(135deg, #1c1f40, #221e45);
   }
 }

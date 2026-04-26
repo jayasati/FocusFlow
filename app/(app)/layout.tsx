@@ -1,6 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
 import { Sidebar } from "@/components/sidebar";
 
 export default async function AppLayout({
@@ -12,14 +11,9 @@ export default async function AppLayout({
   if (!userId) redirect("/");
 
   return (
-    <div className="flex min-h-screen">
+    <div className="grid min-h-screen grid-cols-[210px_1fr] bg-background">
       <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex h-14 items-center justify-end gap-3 border-b border-border px-6">
-          <UserButton />
-        </header>
-        <main className="flex-1 overflow-x-hidden">{children}</main>
-      </div>
+      <main className="min-w-0 overflow-x-hidden">{children}</main>
     </div>
   );
 }
