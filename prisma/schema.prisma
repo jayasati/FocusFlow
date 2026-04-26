@@ -280,20 +280,40 @@ model Goal {
   userId       String
   title        String
   description  String?
+  category     String?
+  icon         String?
+  color        String?
   timeframe    GoalTimeframe
   parentGoalId String?
   startDate    DateTime?
   endDate      DateTime?
   status       GoalStatus    @default(ACTIVE)
   progress     Int           @default(0)
+  startedAt    DateTime?
+  createdAt    DateTime      @default(now())
 
-  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentGoal Goal?  @relation("SubGoals", fields: [parentGoalId], references: [id], onDelete: Cascade)
-  subGoals   Goal[] @relation("SubGoals")
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentGoal Goal?       @relation("SubGoals", fields: [parentGoalId], references: [id], onDelete: Cascade)
+  subGoals   Goal[]      @relation("SubGoals")
+  milestones Milestone[]
 
   @@index([userId, status])
   @@index([userId, endDate])
   @@index([parentGoalId])
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  goalId      String
+  title       String
+  completedAt DateTime?
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, position])
+  @@index([goalId, completedAt])
 }
 
 model Expense {
