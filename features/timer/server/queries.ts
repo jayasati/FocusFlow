@@ -20,6 +20,8 @@ export type SessionRow = {
   endedAt: Date | null;
   durationSec: number;
   taskTitle: string | null;
+  habitName: string | null;
+  habitIcon: string | null;
   completed: boolean;
 };
 
@@ -48,6 +50,61 @@ export const getDailyGoalMinutes = cache(async (): Promise<number> => {
   return u?.dailyFocusGoalMin ?? TIMER_DAILY_GOAL_MIN_DEFAULT;
 });
 
+export const SESSIONS_PAGE_SIZE = 10;
+
+export const getSessions = cache(
+  async (
+    opts: { page?: number } = {},
+  ): Promise<{
+    rows: SessionRow[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> => {
+    const userId = await requireDbUserId();
+    const page = Math.max(1, opts.page ?? 1);
+    const [rows, total] = await Promise.all([
+      db.pomodoroSession.findMany({
+        where: { userId },
+        orderBy: { startedAt: "desc" },
+        skip: (page - 1) * SESSIONS_PAGE_SIZE,
+        take: SESSIONS_PAGE_SIZE,
+        include: {
+          task: { select: { title: true } },
+          habit: { select: { name: true, icon: true } },
+        },
+      }),
+      db.pomodoroSession.count({ where: { userId } }),
+    ]);
+    const mapped: SessionRow[] = rows.map((r) => {
+      const dur =
+        r.endedAt && r.startedAt
+          ? Math.max(
+              0,
+              Math.round((r.endedAt.getTime() - r.startedAt.getTime()) / 1000),
+            )
+          : 0;
+      return {
+        id: r.id,
+        type: r.type,
+        startedAt: r.startedAt,
+        endedAt: r.endedAt,
+        durationSec: dur,
+        taskTitle: r.task?.title ?? null,
+        habitName: r.habit?.name ?? null,
+        habitIcon: r.habit?.icon ?? null,
+        completed: r.completed,
+      };
+    });
+    return {
+      rows: mapped,
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / SESSIONS_PAGE_SIZE)),
+    };
+  },
+);
+
 export const getRecentSessions = cache(
   async (opts: { limit?: number } = {}): Promise<SessionRow[]> => {
     const userId = await requireDbUserId();
@@ -56,7 +113,10 @@ export const getRecentSessions = cache(
       where: { userId },
       orderBy: { startedAt: "desc" },
       take: limit,
-      include: { task: { select: { title: true } } },
+      include: {
+        task: { select: { title: true } },
+        habit: { select: { name: true, icon: true } },
+      },
     });
     return rows.map((r) => {
       const dur =
@@ -73,6 +133,8 @@ export const getRecentSessions = cache(
         endedAt: r.endedAt,
         durationSec: dur,
         taskTitle: r.task?.title ?? null,
+        habitName: r.habit?.name ?? null,
+        habitIcon: r.habit?.icon ?? null,
         completed: r.completed,
       };
     });
