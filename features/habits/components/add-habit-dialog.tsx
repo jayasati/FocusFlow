@@ -20,9 +20,11 @@ import {
   HABIT_COLORS,
   HABIT_COLOR_HEX,
   HABIT_ICONS,
+  KINDS,
   WEEKDAYS,
   type Frequency,
   type HabitColor,
+  type Kind,
 } from "@/features/habits/schema";
 import { createHabit, updateHabit } from "@/features/habits/server/actions";
 
@@ -33,6 +35,8 @@ const formSchema = z
     icon: z.string(),
     color: z.enum(HABIT_COLORS),
     frequency: z.enum(FREQUENCIES),
+    kind: z.enum(KINDS),
+    targetMinutes: z.number().int().min(1).max(24 * 60),
     targetPerWeek: z.number().int().min(1).max(7),
     customDays: z.array(z.number().int().min(0).max(6)),
   })
@@ -54,6 +58,8 @@ type Initial = {
   icon: string;
   color: string;
   frequency: Frequency;
+  kind?: Kind;
+  targetMinutes?: number | null;
   targetPerWeek: number | null;
   customDays: number[];
 };
@@ -90,6 +96,8 @@ export function AddHabitDialog({
       icon: initial?.icon ?? "🌱",
       color: (initial?.color as HabitColor) ?? "purple",
       frequency: initial?.frequency ?? "DAILY",
+      kind: initial?.kind ?? "COUNT",
+      targetMinutes: initial?.targetMinutes ?? 30,
       targetPerWeek: initial?.targetPerWeek ?? 3,
       customDays: initial?.customDays ?? [],
     },
@@ -105,6 +113,8 @@ export function AddHabitDialog({
         icon: initial.icon,
         color: (initial.color as HabitColor) ?? "purple",
         frequency: initial.frequency,
+        kind: initial.kind ?? "COUNT",
+        targetMinutes: initial.targetMinutes ?? 30,
         targetPerWeek: initial.targetPerWeek ?? 3,
         customDays: initial.customDays,
       });
@@ -115,6 +125,8 @@ export function AddHabitDialog({
         icon: "🌱",
         color: "purple",
         frequency: "DAILY",
+        kind: "COUNT",
+        targetMinutes: 30,
         targetPerWeek: 3,
         customDays: [],
       });
@@ -124,6 +136,8 @@ export function AddHabitDialog({
   const icon = watch("icon");
   const color = watch("color");
   const frequency = watch("frequency");
+  const kind = watch("kind");
+  const targetMinutes = watch("targetMinutes");
   const targetPerWeek = watch("targetPerWeek");
   const customDays = watch("customDays");
 
@@ -142,7 +156,12 @@ export function AddHabitDialog({
         icon: v.icon,
         color: v.color,
         frequency: v.frequency,
-        targetPerWeek: v.frequency === "WEEKLY" ? v.targetPerWeek : null,
+        kind: v.kind,
+        targetMinutes: v.kind === "TIME" ? v.targetMinutes : null,
+        targetPerWeek:
+          v.frequency === "WEEKLY" && v.kind === "COUNT"
+            ? v.targetPerWeek
+            : null,
         customDays: v.frequency === "CUSTOM" ? v.customDays : [],
       };
       if (mode === "edit" && initial) {
@@ -228,6 +247,38 @@ export function AddHabitDialog({
             </div>
           </Field>
 
+          <Field label="Type">
+            <div className="flex gap-2">
+              {(
+                [
+                  { v: "COUNT", label: "Frequency" },
+                  { v: "TIME", label: "Time" },
+                ] as { v: Kind; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() =>
+                    setValue("kind", opt.v, { shouldDirty: true })
+                  }
+                  className={cn(
+                    "flex-1 rounded-md border px-3 py-2 text-[12.5px] font-medium transition-colors",
+                    kind === opt.v
+                      ? "border-primary bg-primary/15 text-primary-soft"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground-strong">
+              {kind === "TIME"
+                ? "Track minutes per day or per week — Pomodoro time auto-counts."
+                : "Tick it off once it's done — no time tracked."}
+            </div>
+          </Field>
+
           <Field label="Schedule">
             <div className="flex gap-2">
               {(
@@ -256,7 +307,33 @@ export function AddHabitDialog({
             </div>
           </Field>
 
-          {frequency === "WEEKLY" && (
+          {kind === "TIME" && (
+            <Field
+              label={
+                frequency === "WEEKLY"
+                  ? `Target: ${targetMinutes} min per week`
+                  : frequency === "CUSTOM"
+                    ? `Target: ${targetMinutes} min per scheduled day`
+                    : `Target: ${targetMinutes} min per day`
+              }
+              error={errors.targetMinutes?.message}
+            >
+              <Input
+                type="number"
+                min={1}
+                max={frequency === "WEEKLY" ? 24 * 60 * 7 : 24 * 60}
+                step={5}
+                {...register("targetMinutes", { valueAsNumber: true })}
+              />
+              <div className="mt-1 text-[11px] text-muted-foreground-strong">
+                {frequency === "WEEKLY"
+                  ? "Reach the weekly total any way you like."
+                  : "Pomodoro sessions add minutes automatically."}
+              </div>
+            </Field>
+          )}
+
+          {kind === "COUNT" && frequency === "WEEKLY" && (
             <Field
               label={`Target: ${targetPerWeek} ${targetPerWeek === 1 ? "time" : "times"} per week`}
             >

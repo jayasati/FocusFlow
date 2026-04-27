@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, Minus, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, Search, Timer, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,22 @@ import { useTimerStore } from "@/features/timer/store";
 import { cn } from "@/lib/utils";
 
 type Task = { id: string; title: string; priority: string };
+type Habit = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  frequency: "DAILY" | "WEEKLY" | "CUSTOM";
+  targetMinutes: number;
+};
 
 export function TaskPickerDialog() {
   const picker = useTaskPicker();
   const setTask = useTimerStore((s) => s.setTask);
+  const setHabit = useTimerStore((s) => s.setHabit);
   const [search, setSearch] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [, startFetch] = useTransition();
   const [loading, setLoading] = useState(false);
 
@@ -28,28 +38,37 @@ export function TaskPickerDialog() {
     setLoading(true);
     startFetch(async () => {
       try {
-        const res = await fetch(
-          `/api/timer/tasks?q=${encodeURIComponent(search)}`,
-          { cache: "no-store" },
-        );
-        if (res.ok) {
-          const data = (await res.json()) as Task[];
-          setTasks(data);
-        }
+        const [taskRes, habitRes] = await Promise.all([
+          fetch(`/api/timer/tasks?q=${encodeURIComponent(search)}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/timer/habits?q=${encodeURIComponent(search)}`, {
+            cache: "no-store",
+          }),
+        ]);
+        if (taskRes.ok) setTasks((await taskRes.json()) as Task[]);
+        if (habitRes.ok) setHabits((await habitRes.json()) as Habit[]);
       } finally {
         setLoading(false);
       }
     });
   }, [picker.isOpen, search]);
 
-  function pick(t: Task) {
+  function pickTask(t: Task) {
     setTask(t.id, t.title);
     picker.close();
-    picker.onSkip?.(); // if launched from "start without task" prompt, this proceeds with the start
+    picker.onSkip?.();
+  }
+
+  function pickHabit(h: Habit) {
+    setHabit(h.id, h.name, h.icon);
+    picker.close();
+    picker.onSkip?.();
   }
 
   function clearSelection() {
     setTask(null, null);
+    setHabit(null, null, null);
     picker.close();
   }
 
@@ -58,11 +77,13 @@ export function TaskPickerDialog() {
     picker.onSkip?.();
   }
 
+  const nothing = !loading && habits.length === 0 && tasks.length === 0;
+
   return (
     <Dialog open={picker.isOpen} onOpenChange={(v) => !v && picker.close()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Pick a task to focus on</DialogTitle>
+          <DialogTitle>Pick a focus</DialogTitle>
         </DialogHeader>
 
         <div className="relative mt-2">
@@ -71,36 +92,64 @@ export function TaskPickerDialog() {
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search your open tasks…"
+            placeholder="Search habits or open tasks…"
             className="pl-9"
           />
         </div>
 
-        <div className="mt-3 max-h-[320px] space-y-1 overflow-y-auto pr-1">
-          {loading && tasks.length === 0 ? (
+        <div className="mt-3 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+          {loading && nothing ? (
             <Empty label="Loading…" />
-          ) : tasks.length === 0 ? (
+          ) : nothing ? (
             <Empty
               label={
                 search
-                  ? "No matching open tasks."
-                  : "No open tasks yet — add one in /tasks."
+                  ? "Nothing matches your search."
+                  : "No time habits or open tasks yet."
               }
             />
           ) : (
-            tasks.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => pick(t)}
-                className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-primary/10"
-              >
-                <PriorityIcon p={t.priority} />
-                <span className="flex-1 truncate text-[13px] font-medium">
-                  {t.title}
-                </span>
-              </button>
-            ))
+            <>
+              {habits.length > 0 && (
+                <Section label="Time-based habits">
+                  {habits.map((h) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => pickHabit(h)}
+                      className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-primary/10"
+                    >
+                      <span className="text-[18px]">{h.icon}</span>
+                      <span className="flex-1 truncate text-[13px] font-medium">
+                        {h.name}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground-strong">
+                        <Timer className="h-3 w-3" />
+                        {h.targetMinutes}
+                        {h.frequency === "WEEKLY" ? " min/wk" : " min/day"}
+                      </span>
+                    </button>
+                  ))}
+                </Section>
+              )}
+              {tasks.length > 0 && (
+                <Section label="Open tasks">
+                  {tasks.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => pickTask(t)}
+                      className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-primary/10"
+                    >
+                      <PriorityIcon p={t.priority} />
+                      <span className="flex-1 truncate text-[13px] font-medium">
+                        {t.title}
+                      </span>
+                    </button>
+                  ))}
+                </Section>
+              )}
+            </>
           )}
         </div>
 
@@ -119,12 +168,29 @@ export function TaskPickerDialog() {
               onClick={startWithoutTask}
               className="rounded-md bg-primary px-4 py-2 text-[12.5px] font-semibold text-white hover:bg-primary-soft"
             >
-              Start without a task
+              Start without a focus
             </button>
           ) : null}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="px-1 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground-strong">
+        {label}
+      </div>
+      <div className="space-y-1">{children}</div>
+    </div>
   );
 }
 

@@ -38,6 +38,9 @@ type TimerState = {
   status: Status;
   taskId: string | null;
   taskTitle: string | null;
+  habitId: string | null;
+  habitName: string | null;
+  habitIcon: string | null;
   cycleIndex: number; // 1..4
   soundEnabled: boolean;
   customDurationMin: number;
@@ -45,6 +48,7 @@ type TimerState = {
   setMode: (m: Mode) => void;
   setCustomDuration: (min: number) => void;
   setTask: (id: string | null, title: string | null) => void;
+  setHabit: (id: string | null, name: string | null, icon?: string | null) => void;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -59,6 +63,7 @@ type TimerState = {
     endedAt: string;
     durationSec: number;
     taskId: string | null;
+    habitId: string | null;
   } | null;
   toggleSound: () => void;
 };
@@ -91,6 +96,9 @@ export const useTimerStore = create<TimerState>()(
       status: "IDLE",
       taskId: null,
       taskTitle: null,
+      habitId: null,
+      habitName: null,
+      habitIcon: null,
       cycleIndex: 1,
       soundEnabled: true,
       customDurationMin: 50,
@@ -125,7 +133,24 @@ export const useTimerStore = create<TimerState>()(
         });
       },
 
-      setTask: (id, title) => set({ taskId: id, taskTitle: title }),
+      setTask: (id, title) =>
+        set({
+          taskId: id,
+          taskTitle: title,
+          // Mutually exclusive with habit attribution
+          habitId: id ? null : get().habitId,
+          habitName: id ? null : get().habitName,
+          habitIcon: id ? null : get().habitIcon,
+        }),
+
+      setHabit: (id, name, icon) =>
+        set({
+          habitId: id,
+          habitName: name,
+          habitIcon: icon ?? null,
+          taskId: id ? null : get().taskId,
+          taskTitle: id ? null : get().taskTitle,
+        }),
 
       start: () => {
         const s = get();
@@ -203,6 +228,7 @@ export const useTimerStore = create<TimerState>()(
         const endedAt = new Date().toISOString();
         const completedMode = s.mode;
         const completedTaskId = s.taskId;
+        const completedHabitId = s.habitId;
         const completedDuration = s.durationSec;
 
         const next = nextMode(s.mode, s.cycleIndex);
@@ -224,6 +250,7 @@ export const useTimerStore = create<TimerState>()(
           endedAt,
           durationSec: completedDuration,
           taskId: completedTaskId,
+          habitId: completedHabitId,
         };
       },
 
@@ -242,6 +269,9 @@ export const useTimerStore = create<TimerState>()(
         status: s.status,
         taskId: s.taskId,
         taskTitle: s.taskTitle,
+        habitId: s.habitId,
+        habitName: s.habitName,
+        habitIcon: s.habitIcon,
         cycleIndex: s.cycleIndex,
         soundEnabled: s.soundEnabled,
         customDurationMin: s.customDurationMin,

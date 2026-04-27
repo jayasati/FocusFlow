@@ -84,18 +84,36 @@ function Row({ row, weekStart }: { row: HabitWeekRow; weekStart: Date }) {
         </div>
       </div>
 
-      {row.days.map((done, i) => (
-        <div key={i} className="flex justify-center">
-          <DayCheck
-            habitId={row.id}
-            date={addDays(weekStart, i)}
-            done={done}
-            future={row.future[i]}
-            required={row.required[i]}
-            color={row.color}
-          />
-        </div>
-      ))}
+      {row.days.map((done, i) => {
+        const dailyTimeTarget =
+          row.kind === "TIME" && row.frequency !== "WEEKLY"
+            ? row.targetMinutes ?? 0
+            : 0;
+        const progress =
+          row.kind === "TIME"
+            ? row.frequency === "WEEKLY"
+              ? row.minutesPerDay[i] > 0
+                ? 1
+                : 0
+              : dailyTimeTarget > 0
+                ? row.minutesPerDay[i] / dailyTimeTarget
+                : 0
+            : undefined;
+        return (
+          <div key={i} className="flex justify-center">
+            <DayCheck
+              habitId={row.id}
+              date={addDays(weekStart, i)}
+              done={done}
+              future={row.future[i]}
+              required={row.required[i]}
+              color={row.color}
+              kind={row.kind}
+              progress={progress}
+            />
+          </div>
+        );
+      })}
 
       <div className="px-2">
         <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -103,11 +121,17 @@ function Row({ row, weekStart }: { row: HabitWeekRow; weekStart: Date }) {
             {row.percent}%
           </span>
           <span className="text-[10px] text-muted-foreground-strong">
-            {row.frequency === "WEEKLY"
-              ? `${row.doneThisWeek} / ${row.weeklyTarget} wk`
-              : row.frequency === "CUSTOM"
-                ? `${row.doneThisWeek} / ${row.weeklyTarget} days`
-                : `${row.doneThisWeek} / 7`}
+            {row.kind === "TIME"
+              ? row.frequency === "WEEKLY"
+                ? `${row.minutesThisWeek} / ${row.targetMinutes ?? 0} min wk`
+                : row.frequency === "CUSTOM"
+                  ? `${row.minutesThisWeek} min · ${row.targetMinutes ?? 0}/day`
+                  : `${row.minutesThisWeek} min · ${row.targetMinutes ?? 0}/day`
+              : row.frequency === "WEEKLY"
+                ? `${row.doneThisWeek} / ${row.weeklyTarget} wk`
+                : row.frequency === "CUSTOM"
+                  ? `${row.doneThisWeek} / ${row.weeklyTarget} days`
+                  : `${row.doneThisWeek} / 7`}
           </span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -126,6 +150,8 @@ function Row({ row, weekStart }: { row: HabitWeekRow; weekStart: Date }) {
           icon: row.icon,
           color: row.color,
           frequency: row.frequency,
+          kind: row.kind,
+          targetMinutes: row.targetMinutes,
           targetPerWeek: row.targetPerWeek,
           customDays: row.customDays,
         }}

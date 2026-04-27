@@ -47,6 +47,9 @@ export const HABIT_ICONS = [
 export const FREQUENCIES = ["DAILY", "WEEKLY", "CUSTOM"] as const;
 export type Frequency = (typeof FREQUENCIES)[number];
 
+export const KINDS = ["COUNT", "TIME"] as const;
+export type Kind = (typeof KINDS)[number];
+
 // Mon=0 ... Sun=6
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -57,6 +60,9 @@ export const createHabitSchema = z
     icon: z.string().max(8).default("🌱"),
     color: z.enum(HABIT_COLORS).default("purple"),
     frequency: z.enum(FREQUENCIES).default("DAILY"),
+    kind: z.enum(KINDS).default("COUNT"),
+    /** TIME habits: minutes-per-day for DAILY/CUSTOM, minutes-per-week for WEEKLY. */
+    targetMinutes: z.number().int().min(1).max(24 * 60).optional().nullable(),
     targetPerWeek: z.number().int().min(1).max(7).optional().nullable(),
     customDays: z.array(z.number().int().min(0).max(6)).default([]),
   })
@@ -75,5 +81,22 @@ export const createHabitSchema = z
         message: "Pick at least one day",
       });
     }
+    if (val.kind === "TIME" && (val.targetMinutes ?? 0) < 1) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["targetMinutes"],
+        message: "Set a minutes target",
+      });
+    }
   });
 export type CreateHabitInput = z.input<typeof createHabitSchema>;
+
+/** Returns daily-minutes target for TIME habits — null for WEEKLY (target is per-week). */
+export function dailyMinutesTarget(
+  frequency: Frequency,
+  targetMinutes: number | null,
+): number | null {
+  if (!targetMinutes) return null;
+  if (frequency === "WEEKLY") return null;
+  return targetMinutes;
+}

@@ -30,6 +30,11 @@ enum HabitFrequency {
   CUSTOM
 }
 
+enum HabitKind {
+  COUNT
+  TIME
+}
+
 enum JournalType {
   DAILY
   WEEKLY
@@ -197,6 +202,9 @@ model Habit {
   description   String?
   icon          String?
   frequency     HabitFrequency @default(DAILY)
+  kind          HabitKind      @default(COUNT)
+  /// For TIME habits: minutes-per-day (DAILY/CUSTOM) or minutes-per-week (WEEKLY).
+  targetMinutes Int?
   targetPerWeek Int?
   customDays    Int[]          @default([])
   color         String?
@@ -205,8 +213,9 @@ model Habit {
   archivedAt    DateTime?
   createdAt     DateTime       @default(now())
 
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs HabitLog[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs             HabitLog[]
+  pomodoroSessions PomodoroSession[]
 
   @@index([userId])
   @@index([userId, archivedAt])
@@ -217,6 +226,8 @@ model HabitLog {
   habitId   String
   date      DateTime
   completed Boolean  @default(false)
+  /// Accumulated minutes for TIME habits on this date (null for COUNT habits).
+  minutes   Int?
   note      String?
 
   habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
@@ -356,19 +367,22 @@ model PomodoroSession {
   id        String       @id @default(cuid())
   userId    String
   taskId    String?
+  habitId   String?
   type      PomodoroType
   startedAt DateTime
   endedAt   DateTime?
   completed Boolean      @default(false)
 
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task  Task?  @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  habit Habit? @relation(fields: [habitId], references: [id], onDelete: SetNull)
 
   @@index([userId, startedAt])
   // Analytics + timer queries always combine type IN (...) with startedAt
   // ranges — this index lets Postgres prune by type before the date scan.
   @@index([userId, type, startedAt])
   @@index([taskId])
+  @@index([habitId])
 }
 
 model Tag {

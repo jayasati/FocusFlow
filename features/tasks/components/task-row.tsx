@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { format, isToday } from "date-fns";
 import {
   ArrowDown,
@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   Minus,
   MoreHorizontal,
+  Pencil,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EditTaskDialog } from "@/features/tasks/components/edit-task-dialog";
 
 const TAG_TONES: Record<string, string> = {
   design: "bg-primary/15 text-primary-soft",
@@ -78,6 +80,7 @@ export function TaskTable({ rows }: { rows: TaskRowType[] }) {
 
 function Row({ task }: { task: TaskRowType }) {
   const [, startTransition] = useTransition();
+  const [editOpen, setEditOpen] = useState(false);
   const [optimisticDone, setOptimisticDone] = useOptimistic(
     task.status === "COMPLETED",
   );
@@ -145,6 +148,10 @@ function Row({ task }: { task: TaskRowType }) {
             <MoreHorizontal className="h-4 w-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-3.5 w-3.5" />
+              Edit
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={onDelete}
               className="text-kpi-red focus:text-kpi-red"
@@ -154,6 +161,7 @@ function Row({ task }: { task: TaskRowType }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <EditTaskDialog task={task} open={editOpen} onOpenChange={setEditOpen} />
       </td>
     </tr>
   );

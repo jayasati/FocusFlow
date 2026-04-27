@@ -206,6 +206,52 @@ export const getOpenTasksForPicker = cache(
   },
 );
 
+export type PickerHabit = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  frequency: "DAILY" | "WEEKLY" | "CUSTOM";
+  targetMinutes: number;
+};
+
+export const getTimeHabitsForPicker = cache(
+  async (
+    opts: { search?: string; limit?: number } = {},
+  ): Promise<PickerHabit[]> => {
+    const userId = await requireDbUserId();
+    const limit = opts.limit ?? 50;
+    const rows = await db.habit.findMany({
+      where: {
+        userId,
+        archivedAt: null,
+        kind: "TIME",
+        ...(opts.search
+          ? { name: { contains: opts.search, mode: "insensitive" as const } }
+          : {}),
+      },
+      orderBy: { createdAt: "asc" },
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        color: true,
+        frequency: true,
+        targetMinutes: true,
+      },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      icon: r.icon ?? "🌱",
+      color: r.color ?? "purple",
+      frequency: r.frequency,
+      targetMinutes: r.targetMinutes ?? 0,
+    }));
+  },
+);
+
 export type Achievements = {
   focusStreakDays: number;
   totalFocusHours: number;

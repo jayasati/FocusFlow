@@ -13,7 +13,7 @@ import {
 } from "date-fns";
 import { db } from "@/lib/db";
 import { requireDbUserId } from "@/features/tasks/server/queries";
-import type { Frequency } from "@/features/habits/schema";
+import type { Frequency, Kind } from "@/features/habits/schema";
 
 export type HabitWeekRow = {
   id: string;
@@ -22,10 +22,15 @@ export type HabitWeekRow = {
   icon: string;
   color: string;
   frequency: Frequency;
+  kind: Kind;
+  /** TIME habits only: minutes-per-day (DAILY/CUSTOM) or minutes-per-week (WEEKLY). */
+  targetMinutes: number | null;
   targetPerWeek: number | null;
   customDays: number[];
   /** 7 entries Mon..Sun: true=done */
   days: boolean[];
+  /** TIME habits: minutes logged each day Mon..Sun. */
+  minutesPerDay: number[];
   /** future days marked separately so the UI can render them muted */
   future: boolean[];
   /** required days for THIS habit's mode (DAILY=all, WEEKLY=all, CUSTOM=customDays only) */
@@ -36,6 +41,8 @@ export type HabitWeekRow = {
   doneThisWeek: number;
   /** target this week (DAILY=7, WEEKLY=targetPerWeek, CUSTOM=count of customDays) */
   weeklyTarget: number;
+  /** TIME habits: minutes logged this week. */
+  minutesThisWeek: number;
   currentStreak: number;
   longestStreak: number;
 };
@@ -68,14 +75,16 @@ export const getHabitsWithWeek = cache(
         icon: true,
         color: true,
         frequency: true,
+        kind: true,
+        targetMinutes: true,
         targetPerWeek: true,
         customDays: true,
         currentStreak: true,
         longestStreak: true,
         createdAt: true,
         logs: {
-          where: { date: { gte: wkStart, lte: wkEnd }, completed: true },
-          select: { date: true },
+          where: { date: { gte: wkStart, lte: wkEnd } },
+          select: { date: true, completed: true, minutes: true },
         },
       },
     });
@@ -83,20 +92,34 @@ export const getHabitsWithWeek = cache(
     return habits.map((h) => {
       const dayDates = weekDays(wkStart);
       const created = startOfDay(h.createdAt);
-      const completedSet = new Set(
-        h.logs.map((l) => startOfDay(l.date).getTime()),
-      );
-      const days = dayDates.map((d) =>
-        completedSet.has(startOfDay(d).getTime()),
-      );
+
+      // Per-day tallies from logs (works for both COUNT and TIME).
+      const dayKey = (d: Date) => startOfDay(d).getTime();
+      const completedByDay = new Map<number, boolean>();
+      const minutesByDay = new Map<number, number>();
+      for (const l of h.logs) {
+        const k = dayKey(l.date);
+        completedByDay.set(k, (completedByDay.get(k) ?? false) || l.completed);
+        minutesByDay.set(k, (minutesByDay.get(k) ?? 0) + (l.minutes ?? 0));
+      }
+
+      const minutesPerDay = dayDates.map((d) => minutesByDay.get(dayKey(d)) ?? 0);
       const future = dayDates.map(
         (d) => differenceInCalendarDays(d, today) > 0,
       );
-      // Days BEFORE the habit was created render the same as future days
-      // (muted, non-interactive) and are excluded from percent math.
       const predates = dayDates.map((d) => d.getTime() < created.getTime());
 
-      // `required[i]` = day i is part of this habit's schedule AND post-creation
+      // For TIME habits, "done" per day means "met the daily target" for
+      // DAILY/CUSTOM, or "logged any minutes" for WEEKLY.
+      const days =
+        h.kind === "TIME"
+          ? dayDates.map((_, i) => {
+              if (h.frequency === "WEEKLY") return minutesPerDay[i] > 0;
+              const target = h.targetMinutes ?? 0;
+              return target > 0 && minutesPerDay[i] >= target;
+            })
+          : dayDates.map((d) => completedByDay.get(dayKey(d)) === true);
+
       const required: boolean[] = dayDates.map((_, i) => {
         if (predates[i]) return false;
         if (h.frequency === "CUSTOM") return h.customDays.includes(i);
@@ -104,42 +127,74 @@ export const getHabitsWithWeek = cache(
       });
 
       const doneThisWeek = days.filter((v) => v).length;
+      const minutesThisWeek = minutesPerDay.reduce((a, b) => a + b, 0);
 
       let weeklyTarget: number;
       let percent: number;
-      if (h.frequency === "DAILY") {
-        // 7 minus days that predate the habit
+
+      if (h.kind === "TIME") {
+        const tm = h.targetMinutes ?? 0;
+        if (h.frequency === "WEEKLY") {
+          weeklyTarget = tm || 1;
+          percent = tm > 0 ? Math.round(Math.min(1, minutesThisWeek / tm) * 100) : 0;
+        } else if (h.frequency === "DAILY") {
+          const possibleDays =
+            7 - predates.filter(Boolean).length || 1;
+          weeklyTarget = tm * possibleDays || 1;
+          // Cap each day's contribution at the daily target so a binge day
+          // doesn't paper over missed days.
+          const earned = minutesPerDay.reduce((acc, m, i) => {
+            if (predates[i] || future[i]) return acc;
+            return acc + Math.min(m, tm);
+          }, 0);
+          const possibleSoFar = minutesPerDay.reduce((acc, _m, i) => {
+            if (predates[i] || future[i]) return acc;
+            return acc + tm;
+          }, 0);
+          percent =
+            possibleSoFar > 0
+              ? Math.round((earned / possibleSoFar) * 100)
+              : 0;
+        } else {
+          // CUSTOM TIME — target is per scheduled day
+          const requiredCount = required.filter(Boolean).length || 1;
+          weeklyTarget = tm * requiredCount || 1;
+          const earned = minutesPerDay.reduce((acc, m, i) => {
+            if (!required[i] || future[i]) return acc;
+            return acc + Math.min(m, tm);
+          }, 0);
+          const possibleSoFar = required.reduce((acc, r, i) => {
+            if (!r || future[i]) return acc;
+            return acc + tm;
+          }, 0);
+          percent =
+            possibleSoFar > 0
+              ? Math.round((earned / possibleSoFar) * 100)
+              : 0;
+        }
+      } else if (h.frequency === "DAILY") {
         weeklyTarget = 7 - predates.filter(Boolean).length || 1;
         const possibleSoFar = days.filter(
           (_, i) => !future[i] && !predates[i],
         ).length || 1;
         percent = Math.round((doneThisWeek / possibleSoFar) * 100);
       } else if (h.frequency === "WEEKLY") {
-        // Pro-rate the target if the habit was created mid-week — user can't be
-        // expected to hit "4×/wk" if only 3 days remain.
         const remainingInWeek = 7 - predates.filter(Boolean).length;
         weeklyTarget = Math.min(
           h.targetPerWeek ?? 3,
           remainingInWeek > 0 ? remainingInWeek : 1,
         );
-        percent = Math.round(
-          Math.min(1, doneThisWeek / weeklyTarget) * 100,
-        );
+        percent = Math.round(Math.min(1, doneThisWeek / weeklyTarget) * 100);
       } else {
-        // CUSTOM — required count already excludes pre-creation days
         weeklyTarget = required.filter(Boolean).length || 1;
         const requiredSoFar = required.filter((r, i) => r && !future[i]).length;
-        const doneOnRequired = days.filter(
-          (v, i) => v && required[i],
-        ).length;
+        const doneOnRequired = days.filter((v, i) => v && required[i]).length;
         percent =
           requiredSoFar > 0
             ? Math.round((doneOnRequired / requiredSoFar) * 100)
             : 0;
       }
 
-      // Fold "predates" into "future" for the day-cell renderer — both are
-      // non-interactive, faded states.
       const cellFuture = future.map((f, i) => f || predates[i]);
 
       return {
@@ -149,14 +204,18 @@ export const getHabitsWithWeek = cache(
         icon: h.icon ?? "🌱",
         color: h.color ?? "purple",
         frequency: h.frequency,
+        kind: h.kind,
+        targetMinutes: h.targetMinutes,
         targetPerWeek: h.targetPerWeek,
         customDays: h.customDays,
         days,
+        minutesPerDay,
         future: cellFuture,
         required,
         percent,
         doneThisWeek,
         weeklyTarget,
+        minutesThisWeek,
         currentStreak: h.currentStreak,
         longestStreak: h.longestStreak,
       };

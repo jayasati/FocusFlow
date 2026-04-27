@@ -43,6 +43,7 @@ export const requireDbUserId = cache(async (): Promise<string> => {
 export type TaskRow = {
   id: string;
   title: string;
+  description: string | null;
   priority: "HIGH" | "MEDIUM" | "LOW";
   status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "OVERDUE";
   dueDate: Date | null;
@@ -61,7 +62,7 @@ export type TaskStats = {
   overduePct: number;
 };
 
-export const PAGE_SIZE = 8;
+export const PAGE_SIZE = 10;
 
 // ─── getTasks ────────────────────────────────────────────────────────────────
 // (Note: per-request memoization for stats/dueDays/tags is added at the
@@ -160,6 +161,7 @@ export async function getTasks(opts: {
       select: {
         id: true,
         title: true,
+        description: true,
         priority: true,
         status: true,
         dueDate: true,
@@ -175,6 +177,7 @@ export async function getTasks(opts: {
     rows: rows.map((r) => ({
       id: r.id,
       title: r.title,
+      description: r.description,
       priority: toUiPriority(r.priority),
       status: deriveStatus({
         status: r.status,

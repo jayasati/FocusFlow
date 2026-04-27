@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { archiveHabit } from "@/features/habits/server/actions";
 import { AddHabitDialog } from "@/features/habits/components/add-habit-dialog";
-import type { Frequency } from "@/features/habits/schema";
+import type { Frequency, Kind } from "@/features/habits/schema";
 
 export function HabitRowMenu({
   habit,
@@ -23,6 +23,8 @@ export function HabitRowMenu({
     icon: string;
     color: string;
     frequency: Frequency;
+    kind: Kind;
+    targetMinutes: number | null;
     targetPerWeek: number | null;
     customDays: number[];
   };

@@ -48,6 +48,7 @@ export function TimerProvider() {
       startedAt: result.startedAt,
       endedAt: result.endedAt,
       taskId: result.taskId,
+      habitId: result.habitId,
     }).catch(() => {
       toast.error("Couldn't save session — check your connection");
     });

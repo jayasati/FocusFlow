@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireDbUserId } from "@/features/tasks/server/queries";
 import { bumpTag } from "@/lib/cache-tags";
+import { addHabitMinutes } from "@/features/habits/server/actions";
 
 const TYPE_MAP: Record<
   "POMODORO" | "SHORT" | "LONG" | "CUSTOM",
@@ -20,6 +21,7 @@ export async function logSession(input: {
   startedAt: string;
   endedAt: string;
   taskId?: string | null;
+  habitId?: string | null;
 }) {
   const userId = await requireDbUserId();
   const startedAt = new Date(input.startedAt);
@@ -28,12 +30,28 @@ export async function logSession(input: {
     data: {
       userId,
       taskId: input.taskId ?? null,
+      habitId: input.habitId ?? null,
       type: TYPE_MAP[input.mode],
       startedAt,
       endedAt,
       completed: true,
     },
   });
+
+  // Attribute focus time to the habit's daily log so streaks/percent update.
+  if (
+    input.habitId &&
+    (input.mode === "POMODORO" || input.mode === "CUSTOM")
+  ) {
+    const minutes = Math.max(
+      0,
+      Math.round((endedAt.getTime() - startedAt.getTime()) / 60_000),
+    );
+    if (minutes > 0) {
+      await addHabitMinutes(input.habitId, startedAt, minutes);
+    }
+  }
+
   bumpTag("analytics");
   revalidatePath("/timer");
   revalidatePath("/dashboard");

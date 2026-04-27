@@ -37,6 +37,8 @@ function parseWeekStart(value: string | undefined): Date {
     : startOfMondayWeek(new Date());
 }
 
+const HABITS_PAGE_SIZE = 10;
+
 export default async function HabitsPage({
   searchParams,
 }: {
@@ -44,6 +46,12 @@ export default async function HabitsPage({
 }) {
   const sp = await searchParams;
   const weekStart = parseWeekStart(pickStr(sp.w));
+  const page = Math.max(1, Number(pickStr(sp.page)) || 1);
+
+  const flatSearchParams: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(sp)) {
+    flatSearchParams[k] = pickStr(v);
+  }
 
   return (
     <div className="flex h-screen flex-col">
@@ -70,7 +78,11 @@ export default async function HabitsPage({
             </Suspense>
 
             <Suspense fallback={<GridSkeleton />}>
-              <GridSection weekStart={weekStart} />
+              <GridSection
+                weekStart={weekStart}
+                page={page}
+                flatSearchParams={flatSearchParams}
+              />
             </Suspense>
 
             {/* Right rail content folds in below the grid on narrower screens */}
@@ -156,9 +168,72 @@ async function StatsRow() {
   );
 }
 
-async function GridSection({ weekStart }: { weekStart: Date }) {
-  const rows = await getHabitsWithWeek({ weekStart });
-  return <HabitGrid rows={rows} weekStart={weekStart} />;
+async function GridSection({
+  weekStart,
+  page,
+  flatSearchParams,
+}: {
+  weekStart: Date;
+  page: number;
+  flatSearchParams: Record<string, string | undefined>;
+}) {
+  const all = await getHabitsWithWeek({ weekStart });
+  const totalPages = Math.max(1, Math.ceil(all.length / HABITS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * HABITS_PAGE_SIZE;
+  const rows = all.slice(start, start + HABITS_PAGE_SIZE);
+  return (
+    <>
+      <HabitGrid rows={rows} weekStart={weekStart} />
+      <HabitsPagination
+        page={safePage}
+        totalPages={totalPages}
+        flatSearchParams={flatSearchParams}
+      />
+    </>
+  );
+}
+
+function HabitsPagination({
+  page,
+  totalPages,
+  flatSearchParams,
+}: {
+  page: number;
+  totalPages: number;
+  flatSearchParams: Record<string, string | undefined>;
+}) {
+  if (totalPages <= 1) return null;
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  return (
+    <nav className="flex items-center justify-center gap-1.5 pt-1">
+      {pages.map((p) => {
+        const params = new URLSearchParams(
+          Object.entries(flatSearchParams).filter(
+            ([, v]) => v !== undefined,
+          ) as [string, string][],
+        );
+        if (p === 1) params.delete("page");
+        else params.set("page", String(p));
+        const qs = params.toString();
+        const href = `/habits${qs ? `?${qs}` : ""}`;
+        const active = p === page;
+        return (
+          <a
+            key={p}
+            href={href}
+            className={`flex h-[30px] w-[30px] items-center justify-center rounded-[7px] border text-[12.5px] font-medium transition-colors ${
+              active
+                ? "border-primary bg-primary text-white"
+                : "border-border bg-sidebar text-muted-foreground hover:bg-primary/15 hover:text-foreground"
+            }`}
+          >
+            {p}
+          </a>
+        );
+      })}
+    </nav>
+  );
 }
 
 async function CalendarSection() {

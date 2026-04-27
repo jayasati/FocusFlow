@@ -23,7 +23,7 @@ export type EntryListRow = {
   date: Date;
 };
 
-export const PAGE_SIZE = 8;
+export const PAGE_SIZE = 10;
 
 export const getEntries = cache(
   async (opts: {

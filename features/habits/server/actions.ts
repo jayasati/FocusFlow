@@ -14,6 +14,7 @@ import {
   createHabitSchema,
   type CreateHabitInput,
   type Frequency,
+  type Kind,
 } from "@/features/habits/schema";
 
 const MS_DAY = 86_400_000;
@@ -171,13 +172,97 @@ function customStreak(
   return { current, longest };
 }
 
+function weeklyTimeStreak(
+  perDayMinutes: { date: Date; minutes: number }[],
+  targetMinutes: number,
+  createdAt: Date,
+): { current: number; longest: number } {
+  if (targetMinutes <= 0 || perDayMinutes.length === 0)
+    return { current: 0, longest: 0 };
+
+  // Sum minutes per week.
+  const weekTotals = new Map<number, number>();
+  for (const e of perDayMinutes) {
+    const ws = startOfWeek(startOfDay(e.date), { weekStartsOn: 1 }).getTime();
+    weekTotals.set(ws, (weekTotals.get(ws) ?? 0) + e.minutes);
+  }
+
+  // Pro-rate creation week (e.g. created Wed → only need ~4/7 of target).
+  const createdMs = startOfDay(createdAt).getTime();
+  const createdWs = startOfWeek(new Date(createdMs), {
+    weekStartsOn: 1,
+  }).getTime();
+  const daysRemainingInCreatedWeek =
+    7 - Math.floor((createdMs - createdWs) / MS_DAY);
+  const targetFor = (wsMs: number) =>
+    wsMs === createdWs
+      ? Math.max(
+          1,
+          Math.round((targetMinutes * daysRemainingInCreatedWeek) / 7),
+        )
+      : targetMinutes;
+
+  const weeks = [...weekTotals.entries()]
+    .map(([ws, total]) => ({ ws, total }))
+    .sort((a, b) => a.ws - b.ws);
+
+  let longest = 0;
+  let run = 0;
+  let prevWs: number | null = null;
+  for (const w of weeks) {
+    if (w.total >= targetFor(w.ws)) {
+      if (prevWs !== null && w.ws - prevWs === 7 * MS_DAY) run++;
+      else run = 1;
+      if (run > longest) longest = run;
+      prevWs = w.ws;
+    } else {
+      prevWs = null;
+      run = 0;
+    }
+  }
+
+  const thisWeek = startOfWeek(new Date(), { weekStartsOn: 1 }).getTime();
+  const lastWeek = thisWeek - 7 * MS_DAY;
+  const totalsMap = new Map<number, number>();
+  for (const w of weeks) totalsMap.set(w.ws, w.total);
+  let cursor =
+    (totalsMap.get(thisWeek) ?? 0) >= targetFor(thisWeek) ? thisWeek : lastWeek;
+  let current = 0;
+  while ((totalsMap.get(cursor) ?? 0) >= targetFor(cursor)) {
+    current++;
+    cursor -= 7 * MS_DAY;
+  }
+  return { current, longest };
+}
+
 function recomputeFor(
   frequency: Frequency,
-  completedDates: Date[],
+  kind: Kind,
+  logs: { date: Date; completed: boolean; minutes: number | null }[],
   targetPerWeek: number | null,
+  targetMinutes: number | null,
   customDays: number[],
   createdAt: Date,
 ): { current: number; longest: number } {
+  if (kind === "TIME") {
+    const tm = targetMinutes ?? 0;
+    if (frequency === "WEEKLY") {
+      return weeklyTimeStreak(
+        logs.map((l) => ({ date: l.date, minutes: l.minutes ?? 0 })),
+        tm,
+        createdAt,
+      );
+    }
+    // DAILY / CUSTOM — synthesize a "completed dates" set from minutes >= target
+    const completedDates = logs
+      .filter((l) => (l.minutes ?? 0) >= tm && tm > 0)
+      .map((l) => l.date);
+    if (frequency === "CUSTOM") return customStreak(completedDates, customDays);
+    return dailyStreak(completedDates);
+  }
+
+  // COUNT habits use the existing `completed`-flag logic.
+  const completedDates = logs.filter((l) => l.completed).map((l) => l.date);
   if (frequency === "WEEKLY")
     return weeklyStreak(completedDates, targetPerWeek ?? 3, createdAt);
   if (frequency === "CUSTOM") return customStreak(completedDates, customDays);
@@ -198,12 +283,16 @@ export async function toggleHabitLog(habitId: string, date: Date) {
       select: {
         id: true,
         frequency: true,
+        kind: true,
         targetPerWeek: true,
+        targetMinutes: true,
         customDays: true,
         createdAt: true,
       },
     });
     if (!habit) return;
+    // TIME habits aren't toggled — minutes are accumulated via addHabitMinutes.
+    if (habit.kind === "TIME") return;
 
     const existing = await tx.habitLog.findUnique({
       where: { habitId_date: { habitId, date: day } },
@@ -220,13 +309,15 @@ export async function toggleHabitLog(habitId: string, date: Date) {
     }
 
     const all = await tx.habitLog.findMany({
-      where: { habitId, completed: true },
-      select: { date: true },
+      where: { habitId },
+      select: { date: true, completed: true, minutes: true },
     });
     const { current, longest } = recomputeFor(
       habit.frequency,
-      all.map((l) => l.date),
+      habit.kind,
+      all,
       habit.targetPerWeek,
+      habit.targetMinutes,
       habit.customDays,
       habit.createdAt,
     );
@@ -240,6 +331,78 @@ export async function toggleHabitLog(habitId: string, date: Date) {
   revalidatePath("/habits");
 }
 
+/** Accumulate minutes onto a TIME habit's daily log (used by pomodoro completion). */
+export async function addHabitMinutes(
+  habitId: string,
+  date: Date,
+  deltaMinutes: number,
+) {
+  if (deltaMinutes <= 0) return;
+  const userId = await requireDbUserId();
+  const day = startOfDay(date);
+
+  await db.$transaction(async (tx) => {
+    const habit = await tx.habit.findFirst({
+      where: { id: habitId, userId, archivedAt: null },
+      select: {
+        id: true,
+        frequency: true,
+        kind: true,
+        targetPerWeek: true,
+        targetMinutes: true,
+        customDays: true,
+        createdAt: true,
+      },
+    });
+    if (!habit || habit.kind !== "TIME") return;
+
+    const existing = await tx.habitLog.findUnique({
+      where: { habitId_date: { habitId, date: day } },
+    });
+    const nextMinutes = (existing?.minutes ?? 0) + deltaMinutes;
+    // Day-level "completed" mirrors threshold for DAILY/CUSTOM; for WEEKLY we
+    // just mark it as logged-today so calendar dots etc. show up.
+    const dailyTarget =
+      habit.frequency === "WEEKLY" ? null : habit.targetMinutes ?? null;
+    const completed = dailyTarget
+      ? nextMinutes >= dailyTarget
+      : nextMinutes > 0;
+
+    if (existing) {
+      await tx.habitLog.update({
+        where: { habitId_date: { habitId, date: day } },
+        data: { minutes: nextMinutes, completed },
+      });
+    } else {
+      await tx.habitLog.create({
+        data: { habitId, date: day, minutes: nextMinutes, completed },
+      });
+    }
+
+    const all = await tx.habitLog.findMany({
+      where: { habitId },
+      select: { date: true, completed: true, minutes: true },
+    });
+    const { current, longest } = recomputeFor(
+      habit.frequency,
+      habit.kind,
+      all,
+      habit.targetPerWeek,
+      habit.targetMinutes,
+      habit.customDays,
+      habit.createdAt,
+    );
+    await tx.habit.update({
+      where: { id: habitId },
+      data: { currentStreak: current, longestStreak: longest },
+    });
+  });
+
+  bumpTag("analytics");
+  revalidatePath("/habits");
+  revalidatePath("/timer");
+}
+
 export async function createHabit(input: CreateHabitInput) {
   const userId = await requireDbUserId();
   const data = createHabitSchema.parse(input);
@@ -251,8 +414,12 @@ export async function createHabit(input: CreateHabitInput) {
       icon: data.icon,
       color: data.color,
       frequency: data.frequency,
+      kind: data.kind,
+      targetMinutes: data.kind === "TIME" ? (data.targetMinutes ?? null) : null,
       targetPerWeek:
-        data.frequency === "WEEKLY" ? (data.targetPerWeek ?? 3) : null,
+        data.frequency === "WEEKLY" && data.kind === "COUNT"
+          ? (data.targetPerWeek ?? 3)
+          : null,
       customDays: data.frequency === "CUSTOM" ? data.customDays : [],
     },
   });
@@ -265,7 +432,7 @@ export async function updateHabit(input: CreateHabitInput & { id: string }) {
   const { id, ...rest } = input;
   const data = createHabitSchema.parse(rest);
 
-  // Frequency may have changed → recompute streaks against the new mode.
+  // Frequency or kind may have changed → recompute streaks against the new mode.
   await db.$transaction(async (tx) => {
     const updated = await tx.habit.update({
       where: { id, userId },
@@ -275,20 +442,27 @@ export async function updateHabit(input: CreateHabitInput & { id: string }) {
         icon: data.icon,
         color: data.color,
         frequency: data.frequency,
+        kind: data.kind,
+        targetMinutes:
+          data.kind === "TIME" ? (data.targetMinutes ?? null) : null,
         targetPerWeek:
-          data.frequency === "WEEKLY" ? (data.targetPerWeek ?? 3) : null,
+          data.frequency === "WEEKLY" && data.kind === "COUNT"
+            ? (data.targetPerWeek ?? 3)
+            : null,
         customDays: data.frequency === "CUSTOM" ? data.customDays : [],
       },
       select: { createdAt: true },
     });
     const all = await tx.habitLog.findMany({
-      where: { habitId: id, completed: true },
-      select: { date: true },
+      where: { habitId: id },
+      select: { date: true, completed: true, minutes: true },
     });
     const { current, longest } = recomputeFor(
       data.frequency,
-      all.map((l) => l.date),
+      data.kind,
+      all,
       data.targetPerWeek ?? null,
+      data.targetMinutes ?? null,
       data.customDays,
       updated.createdAt,
     );
