@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditTaskDialog } from "@/features/tasks/components/edit-task-dialog";
+import { TaskInfoTooltip } from "@/features/tasks/components/task-info-tooltip";
 
 const TAG_TONES: Record<string, string> = {
   design: "bg-primary/15 text-primary-soft",
@@ -109,14 +110,16 @@ function Row({ task }: { task: TaskRowType }) {
         <Checkbox checked={optimisticDone} onChange={onToggle} />
       </td>
       <td className="px-3 py-3">
-        <div
-          className={cn(
-            "text-[13px] font-medium",
-            optimisticDone && "text-muted-foreground-strong line-through",
-          )}
-        >
-          {task.title}
-        </div>
+        <TaskInfoTooltip task={task}>
+          <div
+            className={cn(
+              "cursor-help text-[13px] font-medium",
+              optimisticDone && "text-muted-foreground-strong line-through",
+            )}
+          >
+            {task.title}
+          </div>
+        </TaskInfoTooltip>
         {task.tags.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {task.tags.map((t) => (

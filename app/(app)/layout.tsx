@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { PersistentTopRight } from "@/components/persistent-top-right";
@@ -18,19 +19,21 @@ export default function AppLayout({
   return (
     <SidebarSlotProvider>
       <TaskPickerProvider>
-        <TimerProvider />
-        <TaskPickerDialog />
-        <Toaster richColors theme="dark" />
-        <div className="grid min-h-screen grid-cols-1 bg-background md:grid-cols-[210px_minmax(0,1fr)]">
-          <div className="hidden md:block">
-            <Sidebar />
+        <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+          <TimerProvider />
+          <TaskPickerDialog />
+          <Toaster richColors theme="dark" />
+          <div className="grid min-h-screen grid-cols-1 bg-background md:grid-cols-[210px_minmax(0,1fr)]">
+            <div className="hidden md:block">
+              <Sidebar />
+            </div>
+            <main className="relative min-w-0 overflow-x-hidden">
+              <MobileNav />
+              <PersistentTopRight />
+              {children}
+            </main>
           </div>
-          <main className="relative min-w-0 overflow-x-hidden">
-            <MobileNav />
-            <PersistentTopRight />
-            {children}
-          </main>
-        </div>
+        </TooltipProvider>
       </TaskPickerProvider>
     </SidebarSlotProvider>
   );

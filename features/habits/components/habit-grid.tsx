@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { DayCheck } from "@/features/habits/components/day-check";
 import { AddHabitDialog } from "@/features/habits/components/add-habit-dialog";
 import { HabitRowMenu } from "@/features/habits/components/habit-row-menu";
+import { HabitInfoTooltip } from "@/features/habits/components/habit-info-tooltip";
 import {
   HABIT_COLOR_HEX,
   type HabitColor,
@@ -18,8 +19,8 @@ export function HabitGrid({
 }) {
   return (
     <div className="overflow-x-auto rounded-[14px] border border-border bg-card">
-      <div className="min-w-[760px] px-4 pb-0 pt-4">
-        <div className="grid grid-cols-[minmax(220px,1fr)_repeat(7,52px)_minmax(140px,1fr)_28px] items-center gap-x-1 border-b border-border pb-3">
+      <div className="min-w-[820px] px-4 pb-0 pt-4">
+        <div className="grid grid-cols-[minmax(260px,1.4fr)_repeat(7,52px)_minmax(140px,1fr)_28px] items-center gap-x-1 border-b border-border pb-3">
           <div className="text-[14px] font-bold">Habit Tracker</div>
           {DAY_LABELS.map((d) => (
             <div
@@ -66,23 +67,27 @@ function Row({ row, weekStart }: { row: HabitWeekRow; weekStart: Date }) {
   const tint = `${hex}30`;
 
   return (
-    <div className="grid grid-cols-[minmax(220px,1fr)_repeat(7,52px)_minmax(140px,1fr)_28px] items-center gap-x-1 border-b border-border py-3 last:border-b-0">
-      <div className="flex items-center gap-2.5 pr-2">
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[18px]"
-          style={{ background: tint }}
-        >
-          {row.icon}
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-[13.5px] font-semibold">{row.name}</div>
-          {row.description ? (
-            <div className="truncate text-[11px] text-muted-foreground-strong">
-              {row.description}
+    <div className="grid grid-cols-[minmax(260px,1.4fr)_repeat(7,52px)_minmax(140px,1fr)_28px] items-center gap-x-1 border-b border-border py-3 last:border-b-0">
+      <HabitInfoTooltip row={row}>
+        <div className="flex cursor-help items-center gap-2.5 pr-2">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[18px]"
+            style={{ background: tint }}
+          >
+            {row.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="line-clamp-2 break-words text-[13.5px] font-semibold leading-snug">
+              {row.name}
             </div>
-          ) : null}
+            {row.description ? (
+              <div className="line-clamp-2 break-words text-[11px] text-muted-foreground-strong">
+                {row.description}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </HabitInfoTooltip>
 
       {row.days.map((done, i) => {
         const dailyTimeTarget =
