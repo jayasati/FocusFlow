@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   searchPlaceholder?: string;
   actions?: ReactNode;
   className?: string;
