@@ -70,7 +70,6 @@ enum PomodoroType {
 }
 
 enum IntegrationProvider {
-  GOOGLE_CALENDAR
   GITHUB
   LEETCODE
 }
@@ -83,6 +82,8 @@ model User {
   email               String   @unique
   name                String?
   imageUrl            String?
+  bio                 String?
+  notificationPrefs   Json?
   dailyFocusGoalMin   Int      @default(240)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

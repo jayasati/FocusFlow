@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,6 +18,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebarBottomSlot } from "@/lib/sidebar-slot";
+
+type Pulse = {
+  score: number;
+  deltaPct: number | null;
+  sparkline: number[];
+};
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
 
@@ -110,44 +117,147 @@ function NavPending() {
 }
 
 function KeepGoingCard() {
+  const [pulse, setPulse] = useState<Pulse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/sidebar/pulse", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Pulse | null) => {
+        if (!cancelled && data) setPulse(data);
+      })
+      .catch(() => {
+        /* swallow — card just shows the loading shell */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { headline, body, valueText, valueTone } = describePulse(pulse);
+
   return (
     <div className="bg-keep-going rounded-[14px] border border-border p-[14px]">
       <div className="text-[13px] font-bold text-foreground">
-        Keep going! <span className="ml-0.5">🚀</span>
+        {headline} <span className="ml-0.5">🚀</span>
       </div>
       <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-        You&apos;re doing better than last month.
+        {body}
       </div>
-      <div className="mt-2 text-[22px] font-bold leading-none text-kpi-green">
-        +18%
+      <div
+        className={cn(
+          "mt-2 text-[22px] font-bold leading-none",
+          valueTone,
+        )}
+      >
+        {valueText}
       </div>
       <div className="mt-1 text-[10px] text-muted-foreground-strong">
         Productivity
       </div>
-      <svg
-        viewBox="0 0 120 28"
-        preserveAspectRatio="none"
-        className="mt-2 h-7 w-full"
-      >
-        <defs>
-          <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 22 L17 18 L34 20 L51 12 L68 14 L85 8 L102 6 L120 2 L120 28 L0 28 Z"
-          fill="url(#sparkFill)"
-        />
-        <path
-          d="M0 22 L17 18 L34 20 L51 12 L68 14 L85 8 L102 6 L120 2"
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <Sparkline points={pulse?.sparkline ?? null} />
     </div>
+  );
+}
+
+function describePulse(pulse: Pulse | null): {
+  headline: string;
+  body: string;
+  valueText: string;
+  valueTone: string;
+} {
+  if (!pulse) {
+    return {
+      headline: "Keep going!",
+      body: "Crunching your last 30 days…",
+      valueText: "—",
+      valueTone: "text-muted-foreground",
+    };
+  }
+  const { score, deltaPct } = pulse;
+  if (deltaPct === null) {
+    // Brand-new account with no prior 30-day baseline — show the score itself.
+    return {
+      headline: score > 0 ? "Off to a strong start" : "Keep going!",
+      body:
+        score > 0
+          ? "Building your first month of data."
+          : "Log a task or focus session to start tracking.",
+      valueText: `${score}`,
+      valueTone: "text-primary-soft",
+    };
+  }
+  if (deltaPct > 0) {
+    return {
+      headline: "Keep going!",
+      body: "You're doing better than last month.",
+      valueText: `+${deltaPct}%`,
+      valueTone: "text-kpi-green",
+    };
+  }
+  if (deltaPct < 0) {
+    return {
+      headline: "Steady wins it",
+      body: "Slightly down from last month — small steps add up.",
+      valueText: `${deltaPct}%`,
+      valueTone: "text-kpi-orange",
+    };
+  }
+  return {
+    headline: "Holding the line",
+    body: "Right on pace with last month.",
+    valueText: "0%",
+    valueTone: "text-muted-foreground",
+  };
+}
+
+function Sparkline({ points }: { points: number[] | null }) {
+  // Render a flat baseline while loading or when there's no signal at all so
+  // the card height stays stable.
+  const data = points && points.length >= 2 ? points : [0, 0, 0, 0, 0, 0, 0, 0];
+  const W = 120;
+  const H = 28;
+  const PAD = 2;
+  const max = Math.max(1, ...data); // avoid divide-by-zero for an all-zero sparkline
+  const stepX = (W - PAD * 2) / (data.length - 1);
+
+  const coords = data.map((v, i) => {
+    const x = PAD + stepX * i;
+    const y = H - PAD - (v / max) * (H - PAD * 2);
+    return [x, y] as const;
+  });
+
+  const linePath = coords
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`)
+    .join(" ");
+  const fillPath =
+    `M ${coords[0][0].toFixed(1)} ${(H - PAD).toFixed(1)} ` +
+    coords
+      .map(([x, y]) => `L ${x.toFixed(1)} ${y.toFixed(1)}`)
+      .join(" ") +
+    ` L ${coords[coords.length - 1][0].toFixed(1)} ${(H - PAD).toFixed(1)} Z`;
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="mt-2 h-7 w-full"
+    >
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={fillPath} fill="url(#sparkFill)" />
+      <path
+        d={linePath}
+        fill="none"
+        stroke="hsl(var(--primary))"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

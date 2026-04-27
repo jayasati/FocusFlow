@@ -172,7 +172,7 @@ export default async function HeroPage() {
             color="pink"
             icon={<Plug className="h-5 w-5" />}
             title="Powerful Integrations"
-            description="Sync with Google Calendar, GitHub, and LeetCode in one click."
+            description="Sync with GitHub and LeetCode in one click."
           />
         </div>
       </section>
@@ -287,7 +287,7 @@ const GALLERY = [
   {
     src: "/mockups/integrations.png",
     name: "Integrations",
-    description: "Google Calendar, GitHub, LeetCode connectors",
+    description: "GitHub and LeetCode connectors",
   },
   {
     src: "/mockups/help.png",

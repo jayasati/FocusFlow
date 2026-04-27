@@ -102,6 +102,19 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* App-wide: hide native scrollbars on every scroll container while keeping
+     wheel / touch / keyboard scrolling intact. Lives in @layer base so any
+     component utility can still opt back in if it really needs a visible bar. */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / old Edge */
+  }
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
 }
 
 @layer utilities {

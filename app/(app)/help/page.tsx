@@ -1,14 +1,27 @@
 import { PageHeader } from "@/components/page-header";
+import { SidebarBottomSlot } from "@/lib/sidebar-slot";
+import { HelpContent } from "@/features/help/components/help-content";
+import { SupportRail } from "@/features/help/components/support-rail";
+import { HereToHelpCard } from "@/features/help/components/here-to-help-card";
 
 export default function HelpPage() {
   return (
-    <div>
+    <div className="flex h-screen flex-col">
+      <SidebarBottomSlot>
+        <HereToHelpCard />
+      </SidebarBottomSlot>
+
       <PageHeader
         title="Help & Support"
         subtitle="How can we help you today?"
-        searchPlaceholder="Search help articles…"
       />
-      <div className="px-8 pb-10" />
+
+      <div className="flex-1 overflow-y-auto px-4 pb-8 pt-2 lg:px-5">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <HelpContent />
+          <SupportRail />
+        </div>
+      </div>
     </div>
   );
 }
