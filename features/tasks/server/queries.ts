@@ -40,6 +40,12 @@ export const requireDbUserId = cache(async (): Promise<string> => {
 });
 
 // ─── Types returned to the page ──────────────────────────────────────────────
+export type SubtaskRow = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
+
 export type TaskRow = {
   id: string;
   title: string;
@@ -50,6 +56,7 @@ export type TaskRow = {
   tags: string[];
   completedAt: Date | null;
   createdAt: Date;
+  subtasks: SubtaskRow[];
 };
 
 export type TaskStats = {
@@ -88,9 +95,10 @@ export async function getTasks(opts: {
   const startOfTomorrow = new Date(startOfToday);
   startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
 
-  // Base where clause
+  // Base where clause — top-level only; subtasks are fetched nested under
+  // their parent via the `subtasks` relation include below.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = { userId };
+  const where: any = { userId, parentTaskId: null };
 
   if (opts.search) {
     where.title = { contains: opts.search, mode: "insensitive" };
@@ -168,6 +176,15 @@ export async function getTasks(opts: {
         tags: true,
         completedAt: true,
         createdAt: true,
+        subtasks: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            completedAt: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
     }),
     db.task.count({ where }),
@@ -188,6 +205,11 @@ export async function getTasks(opts: {
       tags: r.tags,
       completedAt: r.completedAt,
       createdAt: r.createdAt,
+      subtasks: r.subtasks.map((s) => ({
+        id: s.id,
+        title: s.title,
+        completed: s.status === "DONE" || s.completedAt !== null,
+      })),
     })),
     total,
     page,
@@ -196,26 +218,30 @@ export async function getTasks(opts: {
 }
 
 // ─── getTaskStats ────────────────────────────────────────────────────────────
+// Counts only top-level tasks. Subtasks are checklist items under a parent, not
+// independent tasks — counting them would inflate totals (e.g. "2/3 done" for
+// one parent with two completed children).
 export const getTaskStats = cache(async (): Promise<TaskStats> => {
   const userId = await requireDbUserId();
   const now = new Date();
+  const topLevel = { userId, parentTaskId: null } as const;
 
   const [total, completed, overdue, pendingTodo, pendingDoing] = await Promise.all([
-    db.task.count({ where: { userId } }),
-    db.task.count({ where: { userId, status: "DONE" } }),
+    db.task.count({ where: topLevel }),
+    db.task.count({ where: { ...topLevel, status: "DONE" } }),
     db.task.count({
-      where: { userId, status: { not: "DONE" }, dueDate: { lt: now } },
+      where: { ...topLevel, status: { not: "DONE" }, dueDate: { lt: now } },
     }),
     db.task.count({
       where: {
-        userId,
+        ...topLevel,
         status: "TODO",
         OR: [{ dueDate: null }, { dueDate: { gte: now } }],
       },
     }),
     db.task.count({
       where: {
-        userId,
+        ...topLevel,
         status: "DOING",
         OR: [{ dueDate: null }, { dueDate: { gte: now } }],
       },
@@ -245,7 +271,7 @@ export const getTaskDueDates = cache(async (opts: {
   const start = new Date(opts.year, opts.month, 1);
   const end = new Date(opts.year, opts.month + 1, 1);
   const rows = await db.task.findMany({
-    where: { userId, dueDate: { gte: start, lt: end } },
+    where: { userId, parentTaskId: null, dueDate: { gte: start, lt: end } },
     select: { dueDate: true },
   });
   const days = new Set<number>();
@@ -259,7 +285,7 @@ export const getTaskDueDates = cache(async (opts: {
 const _getDistinctTagsCached = unstable_cache(
   async (userId: string): Promise<string[]> => {
     const rows = await db.task.findMany({
-      where: { userId },
+      where: { userId, parentTaskId: null },
       select: { tags: true },
     });
     const set = new Set<string>();

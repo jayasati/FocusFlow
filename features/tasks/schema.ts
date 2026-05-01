@@ -43,6 +43,11 @@ export const updateTaskSchema = createTaskSchema.partial().extend({
   id: z.string().min(1),
 });
 
+export const addSubtaskSchema = z.object({
+  parentId: z.string().min(1),
+  title: z.string().min(1, "Title is required").max(160),
+});
+
 // Input = pre-transform shape (what callers pass in: dueDate as string).
 // Output = post-transform shape (used internally in server actions).
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
