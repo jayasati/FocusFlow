@@ -84,7 +84,9 @@ export function EditTaskDialog({
         title: v.title.trim(),
         description: v.description?.trim() || null,
         priority: v.priority,
-        dueDate: v.dueDate || null,
+        // datetime-local has no tz; resolve in the user's local tz here so the
+        // server doesn't reinterpret the bare string as UTC.
+        dueDate: v.dueDate ? new Date(v.dueDate).toISOString() : null,
         tags: (v.tags ?? "")
           .split(",")
           .map((t) => t.trim())
